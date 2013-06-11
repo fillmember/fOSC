@@ -7,6 +7,11 @@ The plugin is based on [NIMate OSC Receiver](http://www.ni-mate.com/), while mos
 
 I'd love to know all the comment / commitment / love / hate… on this tiny tool… Please e-mail me if you happens to be in one of above conditions. Thank you.
 
+## Installation & Requirement
+Download, and extract. Put the folder into: ~/Library/Preferences/MAXON/CINEMA 4D R1x_xxxxxxx/plugins
+
+Tested and OK on R14. Probably on R13. 
+
 ## Nice New Features:
 1. Closing the dialog window won't effect the server.
 2. A container for generated nulls.
