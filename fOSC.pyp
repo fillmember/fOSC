@@ -259,7 +259,7 @@ class OSCDialog(c4d.gui.GeDialog):
         self.stopButton = self.AddButton(UI_STOPBUTTON,flags, 150, 15, "Stop Server")
         self.GroupEnd()
 
-        self.AddStaticText(0,c4d.BFH_CENTER,0,0,"You can close this dialog and restore it later.")
+        self.AddStaticText(0,c4d.BFH_CENTER,0,0,"Closing the dialog will stop the receiver. ")
         
         return True
 
@@ -316,7 +316,7 @@ class OSCDialog(c4d.gui.GeDialog):
         try:
             self.receiver.run(self.Creating, self.Recording)
         except Exception as inst:
-            print "Something went wrong when trying to do timer function"
+            print "Something went wrong when trying to do the timer function"
             print type(inst)
             print inst
             OSCReceiver.stopServer(self)

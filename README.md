@@ -13,10 +13,9 @@ Download, and extract. Put the folder into: ~/Library/Preferences/MAXON/CINEMA 4
 Tested and OK on R14. Probably on R13. 
 
 ## Nice New Features:
-1. Closing the dialog window won't effect the server.
-2. A container for generated nulls.
-3. Every track of message can now receive up to 6 numbers in a row. And mapping them to XYZ / PHB
-4. Interface, Codes are cleaned & refined & well commented. Make further improvements easier. 
+1. A container for generated nulls.
+2. Every track of message can now receive up to 6 numbers in a row. And mapping them to XYZ / PHB
+3. Interface, Codes are cleaned & refined & well commented. Make further improvements easier. 
 
 ## Additional Notes:
 1. Numbers mapped to rotation are converted into radian, to present incoming messages in a cleaner way.
@@ -27,6 +26,9 @@ Tested and OK on R14. Probably on R13.
 1. Let fOSC create signal receiver null for you, and use "drive/driven" function to map values to desired objects. This can prevent unwanted hassles and messy animation tracks on various objects.
 2. When no more new tracks are wanted, check off fOSC's create null function. 
 3. When using record position function. It may not be easy to animate in realtime, try slowdown FPS in CINEMA 4D. Let expression of your controller flow and refine the curves later. 
+
+## Todo
+1. find a way to maintain the receiver even when the dialog is closed. 
 
 ## Resources
 
