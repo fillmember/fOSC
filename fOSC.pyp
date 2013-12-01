@@ -87,15 +87,47 @@ class OSC():
         return (float, rest)
 
     @staticmethod
+    def _readTimeTag(data):
+        """
+        Tries to interpret the next 8 bytes of the data as a TimeTag.
+        """
+        high, low = struct.unpack(">ll", data[0:8])
+        if (high == 0) and (low <= 1):
+            time = 0.0
+        else:
+            time = int(high) + float(low / 1e9)
+        rest = data[8:]
+        return (time, rest)
+
+    @staticmethod
+    def _readString(data):
+        """
+        Reads the next (null-terminated) block of data
+        """
+        length   = string.find(data,"\0")
+        nextData = int(math.ceil((length+1) / 4.0) * 4)
+        return (data[0:length], data[nextData:])
+
+    @staticmethod
     def decodeOSC(data):
+        """
+        Converts a binary OSC message to a Python list. 
+        """
+
         table = { "i" : OSC.readInt, "f" : OSC.readFloat, "s" : OSC.readString, "b" : OSC.readBlob, "d" : OSC.readDouble }
         decoded = []
-        address,  rest = OSC.readByte(data)
-        typetags = ""
+        address,  rest = OSC.readString(data)
+
+        if address.startswith(","):
+            typetags = address
+            address = ""
+        else:
+            typetags = ""
         
         if address == "#bundle":
-            print("#Bundle")
-            time, rest = OSC.readLong(rest)
+
+            # time, rest = OSC.readLong(rest)
+            time, rest = OSC.readTimeTag(rest)
             decoded.append(address)
             decoded.append(time)
             while len(rest)>0:
@@ -126,33 +158,48 @@ class OSC():
 class OSCReceiver():
     def run(self, create, record):
         dict = {}
+
         # A loop of constant read.
         while(True):
             try:
                 data = self.sock.recv(1024)
             except:
                 break # break if nothing received
+
             decoded = OSC.decodeOSC(data)
-            decoded.extend( [0,0,0,0,0,0] ) # exceeds 6 numbers in the list first
+
+            decoded.extend( [0,0,0,0,0,0] ) # exceeds 6 elements in the list first
+
+            print decoded
+            
             dict[ decoded[0] ] = decoded[2:8] # crop to first 6 numbers
+
         # Find the target object.
         doc = c4d.documents.GetActiveDocument()
+        
         for key, value in dict.items():
+            
             # Search for object with the name.
-            ob = doc.SearchObject(key)
+            obj = doc.SearchObject(key)
+            
             # Convert user's inputs here to make numbers easier to use/read in C4D, which receives radians in rotation field.
-            if ob is None and create:
+            if obj is None and create:
+                
                 container = self.getContainer();
-                ob = c4d.BaseObject(c4d.Onull)
-                ob.SetName(key)
-                ob.InsertUnder(container)
+                obj = c4d.BaseObject( c4d.Onull )
+
+                obj.SetName( key )
+                obj.InsertUnder( container )
+            
             # Set position & rotation from decoded data.
-            if ob is not None:
+            if obj is not None:
                 pos = c4d.Vector( value[0] , value[1] , value[2] )
                 rot = c4d.Vector( math.radians(value[3]) ,  math.radians(value[4]) ,  math.radians(value[5]) )
-                ob.SetRelPos(pos)
-                ob.SetRelRot(rot)
-                if record: self.setKey(ob, pos, rot)
+                obj.SetRelPos(pos)
+                obj.SetRelRot(rot)
+                if record: self.setKey(obj, pos, rot)
+        
+        # Commit the changes
         c4d.EventAdd()
 
     def __init__(self, UDP_PORT):
@@ -183,17 +230,18 @@ class OSCReceiver():
                 obj.InsertTrackSorted(trk)
             return trk
         def setKeyValue(trk, time, val):
-            key = trk.GetCurve().AddKey(t)['key']
-            key.SetValue(trk.GetCurve(), val)
+            curve = trk.GetCurve()
+            key = curve.AddKey(t)['key']
+            key.SetValue( curve , val )
             return True
         # Get Position Tracks
-        tPosX = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION, c4d.VECTOR_X ) )
-        tPosY = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION, c4d.VECTOR_Y ) )
-        tPosZ = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION, c4d.VECTOR_Z ) )
+        tPosX = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_X ) )
+        tPosY = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_Y ) )
+        tPosZ = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_Z ) )
         # Get Rotation Tracks
-        tRotH = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION, c4d.VECTOR_X ) )
-        tRotP = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION, c4d.VECTOR_Y ) )
-        tRotB = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION, c4d.VECTOR_Z ) )
+        tRotH = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_X ) )
+        tRotP = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_Y ) )
+        tRotB = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_Z ) )
         # Call that function
         t = doc.GetTime()
         setKeyValue( tPosX , t , pos.x )
