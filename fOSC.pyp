@@ -137,19 +137,19 @@ class OSC():
                     value, rest = table[tag](rest)
                     decoded.append(value)
             else:
-                # raise OSCError("OSCMessage's typetag-string lacks the magic ',' ")
+                print "OSCMessage's typetag-string lacks the magic ',' "
 
         return decoded
 
 class OSCReceiver():
     def run(self, create, record):
-        dict = {}
+        osc_dict = {}
         
         def write( key , value , table):
             value.extend( [0,0,0,0,0,0] )
             table[ key ] = value
 
-        # Looping section for reading data & write to the _dict_ variable.
+        # Looping section for reading data & write to the _osc_dict_ variable.
         while(True):
 
             try:
@@ -163,15 +163,15 @@ class OSCReceiver():
                 msgs = decoded[ 2 : ] # the first two is "#bundle" & timetag
                 
                 for i in msgs:
-                    write( i[0] , i[ 2 : 8 ] , dict )
+                    write( i[0] , i[ 2 : 8 ] , osc_dict )
 
             else:
-                write( decoded[0] , decoded[ 2 : 8 ] , dict )
+                write( decoded[0] , decoded[ 2 : 8 ] , osc_dict )
 
         # Find the target object.
         doc = c4d.documents.GetActiveDocument()
         
-        for key, value in dict.items():
+        for key, value in osc_dict.items():
             
             # Search for object with the name.
             obj = doc.SearchObject(key)
@@ -206,10 +206,9 @@ class OSCReceiver():
         self.sock.close()
 
     def getContainer(self):
-        # Make a container for those Nulls if one is not presented
         doc = c4d.documents.GetActiveDocument()
         container = doc.SearchObject(CONTAINER_NAME)
-        
+        # If none, make a container.
         if container is None:
             container = c4d.BaseObject(c4d.Onull)
             container.SetName(CONTAINER_NAME)
@@ -314,6 +313,7 @@ class OSCDialog(c4d.gui.GeDialog):
 
     def InitValues(self):
         # This function is called by C4D.
+        
         # Configure to server On/Off buttons and the first chance to set up ServerStarted
         try:
             if self.ServerStarted :
@@ -327,16 +327,19 @@ class OSCDialog(c4d.gui.GeDialog):
             self.ServerStarted = False
             self.Enable(self.runButton, True)
             self.Enable(self.stopButton, False)
+
         # Configure to create and the first chance to set up Creating
         try:
             self.SetBool(UI_CREATE, self.Creating)
         except:
             self.Creating = self.GetBool(UI_CREATE)
+        
         # Configure to record and the first chance to set up Recording
         try:
             self.SetBool(UI_RECORD, self.Recording)
         except:
             self.Recording = self.GetBool(UI_RECORD)
+        
         # Configure to port and the first chance to set up Port
         try:
             self.SetLong(UI_PORT, self.Port)
