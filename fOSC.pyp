@@ -125,7 +125,6 @@ class OSC():
             typetags = ""
         
         if address == "#bundle":
-
             # time, rest = OSC.readLong(rest)
             time, rest = OSC.readTimeTag(rest)
             decoded.append(address)
@@ -136,20 +135,31 @@ class OSC():
                 rest = rest[length:]
     
         elif len(rest) > 0:
-            typetags, rest = OSC.readByte(rest)
+            if not len(typetags):
+                typetags, rest = readString(rest)
+            
+            # typetags, rest = OSC.readByte(rest)
             decoded.append(address)
             decoded.append(typetags)
+
+            if typetags.startswith(","):
+                for tag in typetags[1:]:
+                    value, rest = table[tag](rest)
+                    decoded.append(value)
+            else:
+                # raise OSCError("OSCMessage's typetag-string lacks the magic ',' ")
+                print "typetag string lacks ','"
             
-            if len(typetags) > 0:
-                if typetags[0] == ',':
-                    for tag in typetags[1:]:
-                        value, rest = table[tag](rest)
-                        decoded.append(value)
-                else:
-                    print("Oops, typetag lacks the magic")
+            # if len(typetags) > 0:
+            #     if typetags[0] == ',':
+            #         for tag in typetags[1:]:
+            #             value, rest = table[tag](rest)
+            #             decoded.append(value)
+            #     else:
+            #         print("Oops, typetag lacks the magic")
         
         # clean up (second element often contains a comma)
-        decoded[1] = decoded[1].replace(",", "")
+        # decoded[1] = decoded[1].replace(",", "")
 
         # return the value
         # [ Track Name , Symbols of Arguments , Arg 1 , Arg 2 , Arg 3 ...]
