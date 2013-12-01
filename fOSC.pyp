@@ -5,6 +5,8 @@ import time
 import socket
 import math
 import struct
+import OSC
+
 # Plugin ID
 PLUGIN_ID = 1030663
 # UI_CONSTANTS
@@ -24,104 +26,6 @@ PLUGIN_DESCRIPTION = ""
 CONTAINER_NAME = "fOSC-Container"
 IP_ADDRESS = "localhost"
 DEFAULT_PORT = 7000
-
-class OSC():
-    @staticmethod
-    def readByte(data):
-        length   = data.find(b'\x00')
-        nextData = int(math.ceil((length+1) / 4.0) * 4)
-        return (data[0:length], data[nextData:])
-
-    @staticmethod
-    def readString(data):
-        length   = str(data).find("\0")
-        nextData = int(math.ceil((length+1) / 4.0) * 4)
-        return (data[0:length], data[nextData:])
-    
-    @staticmethod
-    def readBlob(data):
-        length   = struct.unpack(">i", data[0:4])[0]
-        nextData = int(math.ceil((length) / 4.0) * 4) + 4
-        return (data[4:length+4], data[nextData:])
-    
-    @staticmethod
-    def readInt(data):
-        if(len(data)<4):
-            print("Error: too few bytes for int", data, len(data))
-            rest = data
-            integer = 0
-        else:
-            integer = struct.unpack(">i", data[0:4])[0]
-            rest    = data[4:]
-    
-        return (integer, rest)
-    
-    @staticmethod
-    def readLong(data):
-        """Tries to interpret the next 8 bytes of the data
-        as a 64-bit signed integer."""
-        high, low = struct.unpack(">ll", data[0:8])
-        big = (long(high) << 32) + low
-        rest = data[8:]
-        return (big, rest)
-    
-    @staticmethod
-    def readDouble(data):
-        """Tries to interpret the next 8 bytes of the data
-        as a 64-bit double float."""
-        floater = struct.unpack(">d", data[0:8])
-        big = float(floater[0])
-        rest = data[8:]
-        return (big, rest)
-
-    @staticmethod
-    def readFloat(data):
-        if(len(data)<4):
-            print("Error: too few bytes for float", data, len(data))
-            rest = data
-            float = 0
-        else:
-            float = struct.unpack(">f", data[0:4])[0]
-            rest  = data[4:]
-    
-        return (float, rest)
-
-    @staticmethod
-    def decodeOSC(data):
-        table = { "i" : OSC.readInt, "f" : OSC.readFloat, "s" : OSC.readString, "b" : OSC.readBlob, "d" : OSC.readDouble }
-        decoded = []
-        address,  rest = OSC.readByte(data)
-        typetags = ""
-        
-        if address == "#bundle":
-            print("#Bundle")
-            time, rest = OSC.readLong(rest)
-            decoded.append(address)
-            decoded.append(time)
-            while len(rest)>0:
-                length, rest = OSC.readInt(rest)
-                decoded.append(OSC.decodeOSC(rest[:length]))
-                rest = rest[length:]
-    
-        elif len(rest) > 0:
-            typetags, rest = OSC.readByte(rest)
-            decoded.append(address)
-            decoded.append(typetags)
-            
-            if len(typetags) > 0:
-                if typetags[0] == ',':
-                    for tag in typetags[1:]:
-                        value, rest = table[tag](rest)
-                        decoded.append(value)
-                else:
-                    print("Oops, typetag lacks the magic")
-        
-        # clean up (second element often contains a comma)
-        decoded[1] = decoded[1].replace(",", "")
-
-        # return the value
-        # [ Track Name , Symbols of Arguments , Arg 1 , Arg 2 , Arg 3 ...]
-        return decoded
 
 class OSCReceiver():
     def run(self, create, record):
