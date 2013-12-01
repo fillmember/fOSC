@@ -114,20 +114,21 @@ class OSC():
             typetags = ""
         
         if address == "#bundle":
-            # time, rest = OSC.readLong(rest)
+            
             time, rest = OSC.readTimeTag(rest)
             decoded.append(address)
             decoded.append(time)
+            
             while len(rest)>0:
                 length, rest = OSC.readInt(rest)
                 decoded.append(OSC.decodeOSC(rest[:length]))
                 rest = rest[length:]
     
         elif len(rest) > 0:
+
             if not len(typetags):
                 typetags, rest = OSC.readString(rest)
-            
-            # typetags, rest = OSC.readByte(rest)
+
             decoded.append(address)
             decoded.append(typetags)
 
@@ -137,24 +138,20 @@ class OSC():
                     decoded.append(value)
             else:
                 # raise OSCError("OSCMessage's typetag-string lacks the magic ',' ")
-                print "typetag string lacks ','"
-            
-            # if len(typetags) > 0:
-            #     if typetags[0] == ',':
-            #         for tag in typetags[1:]:
-            #             value, rest = table[tag](rest)
-            #             decoded.append(value)
-            #     else:
-            #         print("Oops, typetag lacks the magic")
 
         return decoded
 
 class OSCReceiver():
     def run(self, create, record):
         dict = {}
+        
+        def write( key , value , table):
+            value.extend( [0,0,0,0,0,0] )
+            table[ key ] = value
 
-        # A loop of constant read.
+        # Looping section for reading data & write to the _dict_ variable.
         while(True):
+
             try:
                 data = self.sock.recv(1024)
             except:
@@ -162,26 +159,14 @@ class OSCReceiver():
 
             decoded = OSC.decodeOSC(data)
 
-            print decoded
-
             if decoded[0] == "#bundle" :
-                # print "wow bundle!"
-
-                msgs = decoded[2:]
-
+                msgs = decoded[ 2 : ] # the first two is "#bundle" & timetag
+                
                 for i in msgs:
-                    # 
-                    i.extend( [0,0,0,0,0,0] )
-                    dict[ i[0] ] = i[ 2 : 8 ]
+                    write( i[0] , i[ 2 : 8 ] , dict )
 
-                # print "exit bundle"
             else:
-
-                decoded.extend( [0,0,0,0,0,0] ) # exceeds 6 elements in the list first
-            
-                dict[ decoded[0] ] = decoded[2:8] # crop to first 6 numbers
-
-        # .replace(",", "")
+                write( decoded[0] , decoded[ 2 : 8 ] , dict )
 
         # Find the target object.
         doc = c4d.documents.GetActiveDocument()
@@ -224,25 +209,30 @@ class OSCReceiver():
         # Make a container for those Nulls if one is not presented
         doc = c4d.documents.GetActiveDocument()
         container = doc.SearchObject(CONTAINER_NAME)
+        
         if container is None:
             container = c4d.BaseObject(c4d.Onull)
             container.SetName(CONTAINER_NAME)
             doc.InsertObject(container)
             c4d.EventAdd()
+
         return container
 
     def setKey( self, obj , pos , rot ):
+        
         def getTrack(obj, desc):
             trk = obj.FindCTrack( desc )
             if not trk:
                 trk = c4d.CTrack(obj, desc)
                 obj.InsertTrackSorted(trk)
             return trk
+        
         def setKeyValue(trk, time, val):
             curve = trk.GetCurve()
             key = curve.AddKey(t)['key']
             key.SetValue( curve , val )
             return True
+        
         # Get Position Tracks
         tPosX = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_X ) )
         tPosY = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_Y ) )
@@ -251,6 +241,7 @@ class OSCReceiver():
         tRotH = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_X ) )
         tRotP = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_Y ) )
         tRotB = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_Z ) )
+        
         # Call that function
         t = doc.GetTime()
         setKeyValue( tPosX , t , pos.x )
@@ -259,6 +250,7 @@ class OSCReceiver():
         setKeyValue( tRotH , t , rot.x )
         setKeyValue( tRotP , t , rot.y )
         setKeyValue( tRotB , t , rot.z )
+
         return True
 
     @staticmethod
