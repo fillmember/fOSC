@@ -3,7 +3,7 @@ FantasticOSC, funnyOSC, futureOSC... or fillmemberOSC.
 
 fOSC is a Python plugin for CINEMA 4D to make special / creative controllers part of animation making process. 
 
-The plugin is based on [NI Mate OSC Receiver](http://www.ni-mate.com/). However, most parts were rewritten by [FillMember](fillmember.net) for usability, stability, learning Python & for fun. 
+The plugin is based on [NI Mate OSC Receiver](http://www.ni-mate.com/). However, most parts were rewritten by [FillMember](http://fillmember.net) for usability, stability, learning Python & for fun. 
 
 I'd love to know all the comment / commitment / love / hate… on this tiny tool. Please e-mail me if you happens to be in one of above conditions. Thank you.
 
@@ -35,6 +35,6 @@ examples:
 
 ## References
 
-* [Open Sound Control](OpenSoundControl.org)
-* [NI Mate](ni-mate.com)
+* [Open Sound Control](http://OpenSoundControl.org)
+* [NI Mate](http://ni-mate.com)
 * [KiCapOSC](http://www.908lab.de/?page_id=215)
