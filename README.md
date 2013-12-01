@@ -7,12 +7,11 @@ The plugin is based on [NI Mate OSC Receiver](http://www.ni-mate.com/). However,
 
 I'd love to know all the comment / commitment / love / hate… on this tiny tool. Please e-mail me if you happens to be in one of above conditions. Thank you.
 
-## Install & Require
-Download, and extract. Put the folder into: ~/Library/Preferences/MAXON/CINEMA 4D R1x_xxxxxxx/plugins
+## Install
+Download, and extract. Put the folder into:  
+~/Library/Preferences/MAXON/CINEMA 4D R1x_xxxxxxx/plugins
 
-Tested and OK on R14. Probably on R13. 
-
-Should be OK with R15?
+Tested on R14. 
 
 ## Features:
 1. A container for generated nulls.
@@ -20,13 +19,33 @@ Should be OK with R15?
 3. Interface, Codes are cleaned & refined & well commented. Make further improvements easier. 
 4. \#Bundle is accepted.
 
+## Get Started
+
+Just open fOSC dialog from plugin menu. Click start server and try send some message to it! (127.0.0.1, default port is 7000)
+
+Every OSC message received is represented as a Null Object in C4D. 
+Its position & rotation are where fOSC store incoming data. 
+
+X -> Y -> Z -> H -> P -> B
+
+six of them are stored in the current frame. 
+
 ## Notice:
-Numbers mapped to rotation are converted for cleaner result.
 
-examples:
+- Each message should have 6 or less values, they can be integer or float. 7th element and later will be ignored. 
 
-* integer 30 ---> 30 degree
-* float 3.14159 ---> 3.14159 degree (instead of 180 degree)
+	because I havn't find a logical way to map them.
+	
+- Incoming message should only contains numbers ( 123 or 1.23 )
+
+	Doesn't support string ...yet.
+	
+- Numbers mapped to rotation are converted for cleaner result.
+
+	for example:
+
+	integer 30 ---> 30 degree
+	float 3.14159 ---> 3.14159 degree (instead of 180 degree)
   
 ## Tips
 1. Let fOSC create null objects for you, and use drive/driven(XPresso) to map to target objects. This can prevent unwanted hassles and messy tracks.
