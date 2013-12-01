@@ -1,10 +1,8 @@
 import c4d
 from c4d import gui,plugins
-import os
-import time
-import socket
-import math
-import struct
+
+import os, math, re, socket, select, string, struct, sys, threading, time, types
+
 # Plugin ID
 PLUGIN_ID = 1030663
 # UI_CONSTANTS
@@ -87,72 +85,115 @@ class OSC():
         return (float, rest)
 
     @staticmethod
+    def readTimeTag(data):
+        """
+        Tries to interpret the next 8 bytes of the data as a TimeTag.
+        """
+        high, low = struct.unpack(">ll", data[0:8])
+        if (high == 0) and (low <= 1):
+            time = 0.0
+        else:
+            time = int(high) + float(low / 1e9)
+        rest = data[8:]
+        return (time, rest)
+
+    @staticmethod
     def decodeOSC(data):
+        """
+        Converts a binary OSC message to a Python list. 
+        """
+
         table = { "i" : OSC.readInt, "f" : OSC.readFloat, "s" : OSC.readString, "b" : OSC.readBlob, "d" : OSC.readDouble }
         decoded = []
-        address,  rest = OSC.readByte(data)
-        typetags = ""
+        address, rest = OSC.readString(data)
+
+        if address.startswith(","):
+            typetags = address
+            address = ""
+        else:
+            typetags = ""
         
         if address == "#bundle":
-            print("#Bundle")
-            time, rest = OSC.readLong(rest)
+            
+            time, rest = OSC.readTimeTag(rest)
             decoded.append(address)
             decoded.append(time)
+            
             while len(rest)>0:
                 length, rest = OSC.readInt(rest)
                 decoded.append(OSC.decodeOSC(rest[:length]))
                 rest = rest[length:]
     
         elif len(rest) > 0:
-            typetags, rest = OSC.readByte(rest)
+
+            if not len(typetags):
+                typetags, rest = OSC.readString(rest)
+
             decoded.append(address)
             decoded.append(typetags)
-            
-            if len(typetags) > 0:
-                if typetags[0] == ',':
-                    for tag in typetags[1:]:
-                        value, rest = table[tag](rest)
-                        decoded.append(value)
-                else:
-                    print("Oops, typetag lacks the magic")
-        
-        # clean up (second element often contains a comma)
-        decoded[1] = decoded[1].replace(",", "")
 
-        # return the value
-        # [ Track Name , Symbols of Arguments , Arg 1 , Arg 2 , Arg 3 ...]
+            if typetags.startswith(","):
+                for tag in typetags[1:]:
+                    value, rest = table[tag](rest)
+                    decoded.append(value)
+            else:
+                print "OSCMessage's typetag-string lacks the magic ',' "
+
         return decoded
 
 class OSCReceiver():
     def run(self, create, record):
-        dict = {}
-        # A loop of constant read.
+        osc_dict = {}
+        
+        def write( key , value , table):
+            value.extend( [0,0,0,0,0,0] )
+            table[ key ] = value
+
+        # Looping section for reading data & write to the _osc_dict_ variable.
         while(True):
+
             try:
                 data = self.sock.recv(1024)
             except:
                 break # break if nothing received
+
             decoded = OSC.decodeOSC(data)
-            decoded.extend( [0,0,0,0,0,0] ) # exceeds 6 numbers in the list first
-            dict[ decoded[0] ] = decoded[2:8] # crop to first 6 numbers
+
+            if decoded[0] == "#bundle" :
+                msgs = decoded[ 2 : ] # the first two is "#bundle" & timetag
+                
+                for i in msgs:
+                    write( i[0] , i[ 2 : 8 ] , osc_dict )
+
+            else:
+                write( decoded[0] , decoded[ 2 : 8 ] , osc_dict )
+
         # Find the target object.
         doc = c4d.documents.GetActiveDocument()
-        for key, value in dict.items():
+        
+        for key, value in osc_dict.items():
+            
             # Search for object with the name.
-            ob = doc.SearchObject(key)
+            obj = doc.SearchObject(key)
+            
             # Convert user's inputs here to make numbers easier to use/read in C4D, which receives radians in rotation field.
-            if ob is None and create:
+            if obj is None and create:
+                
                 container = self.getContainer();
-                ob = c4d.BaseObject(c4d.Onull)
-                ob.SetName(key)
-                ob.InsertUnder(container)
+                obj = c4d.BaseObject( c4d.Onull )
+
+                obj.SetName( key )
+                obj.InsertUnder( container )
+            
             # Set position & rotation from decoded data.
-            if ob is not None:
+            if obj is not None:
                 pos = c4d.Vector( value[0] , value[1] , value[2] )
                 rot = c4d.Vector( math.radians(value[3]) ,  math.radians(value[4]) ,  math.radians(value[5]) )
-                ob.SetRelPos(pos)
-                ob.SetRelRot(rot)
-                if record: self.setKey(ob, pos, rot)
+                obj.SetRelPos(pos)
+                obj.SetRelRot(rot)
+                if record: self.setKey(obj, pos, rot)
+        
+        # Commit the changes
         c4d.EventAdd()
 
     def __init__(self, UDP_PORT):
@@ -165,35 +206,41 @@ class OSCReceiver():
         self.sock.close()
 
     def getContainer(self):
-        # Make a container for those Nulls if one is not presented
         doc = c4d.documents.GetActiveDocument()
         container = doc.SearchObject(CONTAINER_NAME)
+        # If none, make a container.
         if container is None:
             container = c4d.BaseObject(c4d.Onull)
             container.SetName(CONTAINER_NAME)
             doc.InsertObject(container)
             c4d.EventAdd()
+
         return container
 
     def setKey( self, obj , pos , rot ):
+        
         def getTrack(obj, desc):
             trk = obj.FindCTrack( desc )
             if not trk:
                 trk = c4d.CTrack(obj, desc)
                 obj.InsertTrackSorted(trk)
             return trk
+        
         def setKeyValue(trk, time, val):
-            key = trk.GetCurve().AddKey(t)['key']
-            key.SetValue(trk.GetCurve(), val)
+            curve = trk.GetCurve()
+            key = curve.AddKey(t)['key']
+            key.SetValue( curve , val )
             return True
+        
         # Get Position Tracks
-        tPosX = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION, c4d.VECTOR_X ) )
-        tPosY = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION, c4d.VECTOR_Y ) )
-        tPosZ = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION, c4d.VECTOR_Z ) )
+        tPosX = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_X ) )
+        tPosY = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_Y ) )
+        tPosZ = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_Z ) )
         # Get Rotation Tracks
-        tRotH = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION, c4d.VECTOR_X ) )
-        tRotP = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION, c4d.VECTOR_Y ) )
-        tRotB = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION, c4d.VECTOR_Z ) )
+        tRotH = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_X ) )
+        tRotP = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_Y ) )
+        tRotB = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_Z ) )
+        
         # Call that function
         t = doc.GetTime()
         setKeyValue( tPosX , t , pos.x )
@@ -202,6 +249,7 @@ class OSCReceiver():
         setKeyValue( tRotH , t , rot.x )
         setKeyValue( tRotP , t , rot.y )
         setKeyValue( tRotB , t , rot.z )
+
         return True
 
     @staticmethod
@@ -265,6 +313,7 @@ class OSCDialog(c4d.gui.GeDialog):
 
     def InitValues(self):
         # This function is called by C4D.
+        
         # Configure to server On/Off buttons and the first chance to set up ServerStarted
         try:
             if self.ServerStarted :
@@ -278,16 +327,19 @@ class OSCDialog(c4d.gui.GeDialog):
             self.ServerStarted = False
             self.Enable(self.runButton, True)
             self.Enable(self.stopButton, False)
+
         # Configure to create and the first chance to set up Creating
         try:
             self.SetBool(UI_CREATE, self.Creating)
         except:
             self.Creating = self.GetBool(UI_CREATE)
+        
         # Configure to record and the first chance to set up Recording
         try:
             self.SetBool(UI_RECORD, self.Recording)
         except:
             self.Recording = self.GetBool(UI_RECORD)
+        
         # Configure to port and the first chance to set up Port
         try:
             self.SetLong(UI_PORT, self.Port)
