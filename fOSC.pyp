@@ -1,10 +1,8 @@
 import c4d
 from c4d import gui,plugins
-import os
-import time
-import socket
-import math
-import struct
+
+import os, math, re, socket, select, string, struct, sys, threading, time, types
+
 # Plugin ID
 PLUGIN_ID = 1030663
 # UI_CONSTANTS
@@ -87,7 +85,7 @@ class OSC():
         return (float, rest)
 
     @staticmethod
-    def _readTimeTag(data):
+    def readTimeTag(data):
         """
         Tries to interpret the next 8 bytes of the data as a TimeTag.
         """
@@ -100,15 +98,6 @@ class OSC():
         return (time, rest)
 
     @staticmethod
-    def _readString(data):
-        """
-        Reads the next (null-terminated) block of data
-        """
-        length   = string.find(data,"\0")
-        nextData = int(math.ceil((length+1) / 4.0) * 4)
-        return (data[0:length], data[nextData:])
-
-    @staticmethod
     def decodeOSC(data):
         """
         Converts a binary OSC message to a Python list. 
@@ -116,7 +105,7 @@ class OSC():
 
         table = { "i" : OSC.readInt, "f" : OSC.readFloat, "s" : OSC.readString, "b" : OSC.readBlob, "d" : OSC.readDouble }
         decoded = []
-        address,  rest = OSC.readString(data)
+        address, rest = OSC.readString(data)
 
         if address.startswith(","):
             typetags = address
@@ -136,7 +125,7 @@ class OSC():
     
         elif len(rest) > 0:
             if not len(typetags):
-                typetags, rest = readString(rest)
+                typetags, rest = OSC.readString(rest)
             
             # typetags, rest = OSC.readByte(rest)
             decoded.append(address)
@@ -157,14 +146,7 @@ class OSC():
             #             decoded.append(value)
             #     else:
             #         print("Oops, typetag lacks the magic")
-        
-        # clean up (second element often contains a comma)
-        # decoded[1] = decoded[1].replace(",", "")
 
-        # return the value
-        # [ Track Name , Symbols of Arguments , Arg 1 , Arg 2 , Arg 3 ...]
-        #
-        
         return decoded
 
 class OSCReceiver():
@@ -180,11 +162,26 @@ class OSCReceiver():
 
             decoded = OSC.decodeOSC(data)
 
-            decoded.extend( [0,0,0,0,0,0] ) # exceeds 6 elements in the list first
-
             print decoded
+
+            if decoded[0] == "#bundle" :
+                # print "wow bundle!"
+
+                msgs = decoded[2:]
+
+                for i in msgs:
+                    # 
+                    i.extend( [0,0,0,0,0,0] )
+                    dict[ i[0] ] = i[ 2 : 8 ]
+
+                # print "exit bundle"
+            else:
+
+                decoded.extend( [0,0,0,0,0,0] ) # exceeds 6 elements in the list first
             
-            dict[ decoded[0] ] = decoded[2:8] # crop to first 6 numbers
+                dict[ decoded[0] ] = decoded[2:8] # crop to first 6 numbers
+
+        # .replace(",", "")
 
         # Find the target object.
         doc = c4d.documents.GetActiveDocument()
