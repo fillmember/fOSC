@@ -219,11 +219,11 @@ class OSCReceiver():
 
     def setKey( self, obj , pos , rot ):
         
-        def getTrack(obj, desc):
-            trk = obj.FindCTrack( desc )
+        def getTrack( o , desc ):
+            trk = o.FindCTrack( desc )
             if not trk:
-                trk = c4d.CTrack(obj, desc)
-                obj.InsertTrackSorted(trk)
+                trk = c4d.CTrack( o , desc )
+                o.InsertTrackSorted(trk)
             return trk
         
         def setKeyValue(trk, time, val):
@@ -231,17 +231,18 @@ class OSCReceiver():
             key = curve.AddKey(t)['key']
             key.SetValue( curve , val )
             return True
-        
+
         # Get Position Tracks
-        tPosX = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_X ) )
-        tPosY = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_Y ) )
-        tPosZ = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_POSITION , c4d.VECTOR_Z ) )
+        tPosX = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_POSITION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_X , 0 ) ) )
+        tPosY = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_POSITION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_Y , 0 ) ) )
+        tPosZ = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_POSITION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_Z , 0 ) ) )
         # Get Rotation Tracks
-        tRotH = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_X ) )
-        tRotP = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_Y ) )
-        tRotB = getTrack( c4d.DescID( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.VECTOR_Z ) )
-        
+        tRotH = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_X , 0 ) ) )
+        tRotP = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_Y , 0 ) ) )
+        tRotB = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_Z , 0 ) ) )
+
         # Call that function
+        doc = c4d.documents.GetActiveDocument()
         t = doc.GetTime()
         setKeyValue( tPosX , t , pos.x )
         setKeyValue( tPosY , t , pos.y )
@@ -367,10 +368,7 @@ class OSCDialog(c4d.gui.GeDialog):
     def Timer(self, msg):
         try:
             self.receiver.run(self.Creating, self.Recording)
-        except Exception as inst:
-            print "Something went wrong when trying to do the timer function"
-            print type(inst)
-            print inst
+        except:
             OSCReceiver.stopServer(self)
 
     def updateInterface(self):
