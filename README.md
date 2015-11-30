@@ -45,9 +45,9 @@ Keyframes will be created on the current position on timeline. You can also chan
 
 ## Tips
 
-- Numbers mapped to rotation are converted to show the original value in degrees. 
-    integer 30 ---> 30 degree
-    float 3.14159 ---> 3.14159 degree (instead of 180 degree)
+- Numbers mapped to rotation are converted to show the original value in degrees.  
+integer 30 ---> 30 degree  
+float 3.14159 ---> 3.14159 degree (instead of 180 degree)
 
 ## References
 
