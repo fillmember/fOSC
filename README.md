@@ -54,3 +54,7 @@ float 3.14159 ---> 3.14159 degree (instead of 180 degree)
 * [Open Sound Control](http://OpenSoundControl.org)
 * [NI Mate](http://ni-mate.com)
 * [KiCapOSC](http://www.908lab.de/?page_id=215)
+
+## Questions & Contact
+
+[Ten (fillmember)](mailto:hi@fillmember.net)
