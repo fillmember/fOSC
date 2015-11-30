@@ -431,7 +431,7 @@ class OSCDialog(c4d.gui.GeDialog):
         except:
             self.SetLong(UI_PORT, DEFAULT_PORT, 1)
             self.Port = DEFAULT_PORT
-        
+
         return True
 
     def Command(self, id, msg):
