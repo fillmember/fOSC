@@ -1,25 +1,35 @@
+# Import
 import c4d
 from c4d import gui,plugins
 
-import os, math, re, socket, select, string, struct, sys, threading, time, types
+import os
+import math
+import re
+import socket
+import select
+import string
+import struct
+import sys
+import threading
+import time
+import types
 
-# Plugin ID
+# Plugin Info
 PLUGIN_ID = 1030663
-# UI_CONSTANTS
+PLUGIN_NAME = "fOSC"
+PLUGIN_DESCRIPTION = ""
+# UI
+CONTAINER_NAME = "fOSC-Container"
+DIALOG_SIZE_WIDTH  = 300
+DIALOG_SIZE_HEIGHT =  80
+# UI - Buttons
 UI_PORT = 1001
 UI_CREATE = 1002
 UI_RUNBUTTON = 1003
 UI_RECORD = 1004
 UI_STOPBUTTON = 1005
 UI_AUTOMAP = 1006
-# GROUPS
-GROUP_ADDRESS = 20000
-GROUP_OPTIONS = 20001
-GROUP_SERVERTOGGLE = 20002
-#
-PLUGIN_NAME = "fOSC"
-PLUGIN_DESCRIPTION = ""
-CONTAINER_NAME = "fOSC-Container"
+# Server Info
 IP_ADDRESS = "localhost"
 DEFAULT_PORT = 7000
 
@@ -143,6 +153,7 @@ class OSC():
 
 class OSCReceiver():
     def run(self, create, record):
+        
         osc_dict = {}
         
         def write( key , value , table):
@@ -155,16 +166,15 @@ class OSCReceiver():
             try:
                 data = self.sock.recv(1024)
             except:
-                break # break if nothing received
+                # break if nothing received
+                break
 
             decoded = OSC.decodeOSC(data)
-
+            # format: [#bundle, timetag, msg...]
             if decoded[0] == "#bundle" :
-                msgs = decoded[ 2 : ] # the first two is "#bundle" & timetag
-                
+                msgs = decoded[ 2 : ]
                 for i in msgs:
                     write( i[0] , i[ 2 : 8 ] , osc_dict )
-
             else:
                 write( decoded[0] , decoded[ 2 : 8 ] , osc_dict )
 
@@ -176,7 +186,6 @@ class OSCReceiver():
             # Search for object with the name.
             obj = doc.SearchObject(key)
             
-            # Convert user's inputs here to make numbers easier to use/read in C4D, which receives radians in rotation field.
             if obj is None and create:
                 
                 container = self.getContainer();
@@ -220,26 +229,27 @@ class OSCReceiver():
     def setKey( self, obj , pos , rot ):
         
         def getTrack( o , desc ):
-            trk = o.FindCTrack( desc )
-            if not trk:
-                trk = c4d.CTrack( o , desc )
-                o.InsertTrackSorted(trk)
-            return trk
+            track = o.FindCTrack( desc )
+            if not track:
+                track = c4d.CTrack( o , desc )
+                o.InsertTrackSorted( track )
+            return track
         
         def setKeyValue(trk, time, val):
             curve = trk.GetCurve()
             key = curve.AddKey(t)['key']
             key.SetValue( curve , val )
-            return True
 
         # Get Position Tracks
-        tPosX = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_POSITION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_X , 0 ) ) )
-        tPosY = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_POSITION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_Y , 0 ) ) )
-        tPosZ = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_POSITION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_Z , 0 ) ) )
+        rel_pos = c4d.DescLevel( c4d.ID_BASEOBJECT_REL_POSITION , c4d.DTYPE_VECTOR , 0 )
+        tPosX = getTrack( obj , c4d.DescID( rel_pos , c4d.DescLevel( c4d.VECTOR_X , 0 ) ) )
+        tPosY = getTrack( obj , c4d.DescID( rel_pos , c4d.DescLevel( c4d.VECTOR_Y , 0 ) ) )
+        tPosZ = getTrack( obj , c4d.DescID( rel_pos , c4d.DescLevel( c4d.VECTOR_Z , 0 ) ) )
         # Get Rotation Tracks
-        tRotH = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_X , 0 ) ) )
-        tRotP = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_Y , 0 ) ) )
-        tRotB = getTrack( obj , c4d.DescID( c4d.DescLevel( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.DTYPE_VECTOR , 0 ) , c4d.DescLevel( c4d.VECTOR_Z , 0 ) ) )
+        rel_rot = c4d.DescLevel( c4d.ID_BASEOBJECT_REL_ROTATION , c4d.DTYPE_VECTOR , 0 )
+        tRotH = getTrack( obj , c4d.DescID( rel_rot , c4d.DescLevel( c4d.VECTOR_X , 0 ) ) )
+        tRotP = getTrack( obj , c4d.DescID( rel_rot , c4d.DescLevel( c4d.VECTOR_Y , 0 ) ) )
+        tRotB = getTrack( obj , c4d.DescID( rel_rot , c4d.DescLevel( c4d.VECTOR_Z , 0 ) ) )
 
         # Call that function
         doc = c4d.documents.GetActiveDocument()
@@ -257,14 +267,15 @@ class OSCReceiver():
     def startServer(self):
         if self.ServerStarted == False:
             try:
-                self.receiver = OSCReceiver(self.Port) # This is the first place we set up receiver. (call __init__ in OSCReceiver)
-                if self.Recording:
+                # init a OSCReceiver object
+                self.receiver = OSCReceiver(self.Port)
+                if self.RecordMessage:
                     c4d.CallCommand(12412) # Play Forwards
             except Exception as inst:
                 print "error setting up receiver"
                 print type(inst)
                 print inst
-                return # prevent this function to set up timer and such
+                return
             self.SetTimer(10)
             self.updateInterface()
             self.ServerStarted = True
@@ -273,8 +284,11 @@ class OSCReceiver():
     def stopServer(self):
         if self.ServerStarted:
             try:
-                del self.receiver # Every time the server is stopped, the receiver object is deleted. (call __del__ in OSCReceiver)
-                if self.Recording:
+                # Every time the server is stopped, 
+                # the receiver object is deleted.
+                # (call __del__ in OSCReceiver)
+                del self.receiver
+                if self.RecordMessage:
                     c4d.CallCommand(12412) # Play Forwards (this command is a toggle, call again to pause the playback)
             except Exception as inst:
                 print "error deleting receiver, it may not exist. Check the setup function and runtime functions. "
@@ -286,36 +300,108 @@ class OSCReceiver():
 
 class OSCDialog(c4d.gui.GeDialog):
     def CreateLayout(self):
-        # This function is called by C4D.
-        self.SetTitle(PLUGIN_NAME)
-
-        flags = c4d.BFH_SCALE|c4d.BFV_SCALE
-        self.GroupBegin(GROUP_ADDRESS,c4d.BFH_SCALEFIT|c4d.BFV_FIT,3,0,"")
-        self.AddStaticText(0,flags,0,0,"Listening Port",0)
-        self.portNumber = self.AddEditNumberArrows(UI_PORT,flags)
-        self.GroupEnd()
-
-        #flags = c4d.BFH_SCALE|c4d.BFV_SCALE
-        self.GroupBegin(GROUP_OPTIONS,c4d.BFH_SCALEFIT|c4d.BFV_FIT,2,0,"Options")
-        self.AddCheckbox(UI_CREATE,flags,0,0,"Create Nulls from messages")
-        self.AddCheckbox(UI_RECORD,flags,0,0,"Record data as positions")
-        # self.AddCheckbox(UI_AUTOMAP,flags,0,0,"Auto Mapping (BETA)")
-        self.GroupEnd()
-
-        #flags = c4d.BFH_SCALE|c4d.BFV_SCALE
-        self.GroupBegin(GROUP_SERVERTOGGLE,c4d.BFH_SCALEFIT|c4d.BFV_FIT,2,0,"")
-        self.runButton = self.AddButton(UI_RUNBUTTON,flags, 150, 15, "Start Server")
-        self.stopButton = self.AddButton(UI_STOPBUTTON,flags, 150, 15, "Stop Server")
-        self.GroupEnd()
-
-        self.AddStaticText(0,c4d.BFH_CENTER,0,0,"Closing the dialog will stop the receiver. ")
         
+        # Variables
+        row_height   = 20
+        groupElement_flags = c4d.BFH_LEFT|c4d.BFV_CENTER
+        
+        # Lambdas
+        self.AddEmpty = lambda: self.AddStaticText(0,0,0,0," ")
+        self.AddHeader = lambda (text): self.AddStaticText(
+            id    = 0,
+            flags = c4d.BFH_LEFT|c4d.BFV_CENTER,
+            initw = 150,
+            inith = row_height,
+            name  = text
+        )
+        self.AddFelx = lambda: self.AddStaticText(id=0,flags=c4d.BFH_SCALEFIT|c4d.BFV_SCALEFIT,name="")
+        
+        # Build
+        self.SetTitle(PLUGIN_NAME)
+        
+        self.AddFelx()
+        self.GroupBegin(
+            id    = 0,
+            flags = 0,
+            cols  = 3,
+            rows  = 4,
+            title = "",
+            groupflags = c4d.BFV_GRIDGROUP_EQUALROWS
+        )
+        # Title Line
+        self.AddHeader("fOSC v1.1.1")
+        self.AddEmpty()
+        self.AddEmpty()
+        # C4D Commands
+        self.AddHeader("Options: ")
+        self.AddCheckbox(
+            id = UI_CREATE,
+            flags = groupElement_flags,
+            initw = 200,
+            inith = row_height,
+            name = "Create Nulls Objects"
+        )
+        self.AddCheckbox(
+            id = UI_RECORD,
+            flags = groupElement_flags,
+            initw = 200,
+            inith = row_height,
+            name = "Record Incoming Data"
+        )
+        # Server Command
+        self.AddHeader("OSC Server: ")
+        self.runButton  = self.AddButton(
+            id    = UI_RUNBUTTON,
+            flags = groupElement_flags,
+            initw = 140,
+            inith =  15,
+            name  = "Start Listening"
+        )
+        self.stopButton  = self.AddButton(
+            id    = UI_STOPBUTTON,
+            flags = groupElement_flags,
+            initw = 140,
+            inith =  15,
+            name  = "Stop Listening"
+        )
+        # Server Options
+        self.AddHeader("Listening to Port: ")
+        self.portNumber = self.AddEditNumberArrows(
+            id    = UI_PORT,
+            flags = groupElement_flags
+        )
+        self.GroupEnd()
+
+        self.AddEmpty()
+
+        self.GroupBegin(
+            id    = 2,
+            flags = 0,
+            cols  = 1,
+            rows  = 2,
+            title = "notes",
+            groupflags = c4d.BFV_GRIDGROUP_EQUALROWS
+        )
+        self.AddStaticText(
+            id    = 0, 
+            flags = c4d.BFH_LEFT|c4d.BFV_CENTER,
+            name  = "Note: Closing the dialog will stop the receiver. "
+        )
+        self.AddStaticText(
+            id    = 0, 
+            flags = c4d.BFH_LEFT|c4d.BFV_CENTER,
+            name  = "Check: https://github.com/fillmember/fosc"
+        )
+        self.GroupEnd()
+
+        self.AddFelx()
+
         return True
 
     def InitValues(self):
-        # This function is called by C4D.
+        # This function is called by C4D everytime GUI is created. 
         
-        # Configure to server On/Off buttons and the first chance to set up ServerStarted
+        # Configure to server On/Off buttons / or set up ServerStarted
         try:
             if self.ServerStarted :
                 self.Enable(self.portNumber, False)
@@ -329,36 +415,35 @@ class OSCDialog(c4d.gui.GeDialog):
             self.Enable(self.runButton, True)
             self.Enable(self.stopButton, False)
 
-        # Configure to create and the first chance to set up Creating
+        # Configure to create /or/ set up property
         try:
-            self.SetBool(UI_CREATE, self.Creating)
+            self.SetBool(UI_CREATE, self.NullCreating)
         except:
-            self.Creating = self.GetBool(UI_CREATE)
+            self.NullCreating = self.GetBool(UI_CREATE)
         
-        # Configure to record and the first chance to set up Recording
         try:
-            self.SetBool(UI_RECORD, self.Recording)
+            self.SetBool(UI_RECORD, self.RecordMessage)
         except:
-            self.Recording = self.GetBool(UI_RECORD)
+            self.RecordMessage = self.GetBool(UI_RECORD)
         
-        # Configure to port and the first chance to set up Port
         try:
             self.SetLong(UI_PORT, self.Port)
         except:
             self.SetLong(UI_PORT, DEFAULT_PORT, 1)
             self.Port = DEFAULT_PORT
+        
         return True
 
     def Command(self, id, msg):
         # This function is called by C4D.
-        if id == UI_RUNBUTTON :
+        if   id == UI_RUNBUTTON :
             OSCReceiver.startServer(self)
         elif id == UI_STOPBUTTON : 
             OSCReceiver.stopServer(self)
         elif id == UI_RECORD :
-            self.Recording = self.GetBool(UI_RECORD)
+            self.RecordMessage = self.GetBool(UI_RECORD)
         elif id == UI_CREATE :
-            self.Creating = self.GetBool(UI_CREATE)
+            self.NullCreating  = self.GetBool(UI_CREATE)
         elif id == UI_PORT :
             self.Port = self.GetLong(UI_PORT)
         else :
@@ -367,7 +452,7 @@ class OSCDialog(c4d.gui.GeDialog):
 
     def Timer(self, msg):
         try:
-            self.receiver.run(self.Creating, self.Recording)
+            self.receiver.run(self.NullCreating, self.RecordMessage)
         except:
             OSCReceiver.stopServer(self)
 
@@ -383,24 +468,28 @@ class OSCDialog(c4d.gui.GeDialog):
             self.Enable(self.stopButton, True)
 
 class fOSC(c4d.plugins.CommandData):
-    def Init(self, op):
-        bc = op.GetData()
-        op.SetData(bc)
-        return True
-
-    def Message(self, type, data):
-        return True
-
     def Execute(self, doc):
-        self.frame = doc.GetTime().GetFrame(doc.GetFps())
         if hasattr(self, 'dialog') == False:
+            # init a OSCDialog object
             self.dialog = OSCDialog()
 
-        return self.dialog.Open(dlgtype=c4d.DLG_TYPE_ASYNC, pluginid=PLUGIN_ID, defaultw=250, defaulth=100)
+        return self.dialog.Open(
+                 dlgtype=c4d.DLG_TYPE_ASYNC
+                ,pluginid=PLUGIN_ID
+                ,defaultw=DIALOG_SIZE_WIDTH
+                ,defaulth=DIALOG_SIZE_HEIGHT
+               )
 
 if __name__=='__main__':
-    bmp = c4d.bitmaps.BaseBitmap()
+    icon = c4d.bitmaps.BaseBitmap()
     dir, file = os.path.split(__file__)
-    fn = os.path.join(dir, "res", "Icon.tif")
-    bmp.InitWith(fn)
-    result = plugins.RegisterCommandPlugin(PLUGIN_ID, PLUGIN_NAME, 0, bmp, PLUGIN_DESCRIPTION, fOSC())
+    icon.InitWith( os.path.join(dir, "res", "Icon.tif") )
+    fOSC_plugin = fOSC();
+    plugins.RegisterCommandPlugin(
+        PLUGIN_ID
+      , PLUGIN_NAME
+      , 0
+      , icon
+      , PLUGIN_DESCRIPTION
+      , fOSC_plugin
+    )
