@@ -53,69 +53,57 @@ DEFAULT_PORT = 7000
 
 class OSC():
     @staticmethod
-    def readByte(data):
-        length   = data.find(b'\x00')
-        nextData = int(math.ceil((length+1) / 4.0) * 4)
-        return (data[0:length], data[nextData:])
-
-    @staticmethod
     def readString(data):
-        length   = str(data).find("\0")
+        length = data.find(b"\x00")
         nextData = int(math.ceil((length+1) / 4.0) * 4)
         return (data[0:length], data[nextData:])
     
     @staticmethod
     def readBlob(data):
-        length   = struct.unpack(">i", data[0:4])[0]
+        length = struct.unpack(">i", data[0:4])[0]
         nextData = int(math.ceil((length) / 4.0) * 4) + 4
         return (data[4:length+4], data[nextData:])
     
     @staticmethod
     def readInt(data):
-        if(len(data)<4):
+        if(len(data) < 4):
             print("Error: too few bytes for int", data, len(data))
             rest = data
             integer = 0
         else:
             integer = struct.unpack(">i", data[0:4])[0]
-            rest    = data[4:]
-    
+            rest = data[4:]
+
         return (integer, rest)
-    
-    @staticmethod
-    def readLong(data):
-        """Tries to interpret the next 8 bytes of the data
-        as a 64-bit signed integer."""
-        high, low = struct.unpack(">ll", data[0:8])
-        big = (long(high) << 32) + low
-        rest = data[8:]
-        return (big, rest)
-    
-    @staticmethod
-    def readDouble(data):
-        """Tries to interpret the next 8 bytes of the data
-        as a 64-bit double float."""
-        floater = struct.unpack(">d", data[0:8])
-        big = float(floater[0])
-        rest = data[8:]
-        return (big, rest)
 
     @staticmethod
+    def readDouble(data):
+        if(len(data)<8):
+            print("Error: too few bytes for double", data, len(data))
+            rest = data
+            float = 0
+        else:
+            float = struct.unpack(">d", data[0:8])[0]
+            rest  = data[8:]
+
+        return (float, rest)
+    @staticmethod
     def readFloat(data):
-        if(len(data)<4):
+        if(len(data) < 4):
             print("Error: too few bytes for float", data, len(data))
             rest = data
             float = 0
         else:
             float = struct.unpack(">f", data[0:4])[0]
-            rest  = data[4:]
-    
+            rest = data[4:]
+
         return (float, rest)
 
+    
     @staticmethod
     def readTimeTag(data):
-        """
-        Tries to interpret the next 8 bytes of the data as a TimeTag.
+        """Tries to interpret the next 8 bytes of the data
+        as a TimeTag.
         """
         high, low = struct.unpack(">ll", data[0:8])
         if (high == 0) and (low <= 1):
@@ -130,17 +118,15 @@ class OSC():
         """
         Converts a binary OSC message to a Python list. 
         """
-
-        table = { "i" : OSC.readInt, "f" : OSC.readFloat, "s" : OSC.readString, "b" : OSC.readBlob, "d" : OSC.readDouble }
+        table = {"i":OSC.readInt, "f":OSC.readFloat, "s":OSC.readString, "b":OSC.readBlob, "t":OSC.readTimeTag}
         decoded = []
         address, rest = OSC.readString(data)
-
-        if address.startswith(","):
+        if address.startswith(b","):
             typetags = address
-            address = ""
+            address = b""
         else:
-            typetags = ""
-        
+            typetags = b""
+
         if address == "#bundle":
             
             time, rest = OSC.readTimeTag(rest)
@@ -153,20 +139,19 @@ class OSC():
                 rest = rest[length:]
     
         elif len(rest) > 0:
-
             if not len(typetags):
                 typetags, rest = OSC.readString(rest)
 
             decoded.append(address)
             decoded.append(typetags)
-
-            if typetags.startswith(","):
-                for tag in typetags[1:]:
+            if typetags.startswith(b","):
+                for tag in typetags.decode()[1:]:
                     value, rest = table[tag](rest)
                     decoded.append(value)
             else:
-                print "OSCMessage's typetag-string lacks the magic ',' "
+                print("OSCMessage's typetag-string lacks the magic ','")
 
+        decoded = [s.decode('utf-8') if type(s) is bytes else s for s in decoded]
         return decoded
 
 class OSCReceiver():
@@ -290,9 +275,9 @@ class OSCReceiver():
                 if self.RecordMessage:
                     c4d.CallCommand(12412) # Play Forwards
             except Exception as inst:
-                print "error setting up receiver"
-                print type(inst)
-                print inst
+                print("error setting up receiver")
+                print(type(inst))
+                print(inst)
                 return
             self.SetTimer(10)
             self.updateInterface()
@@ -309,9 +294,9 @@ class OSCReceiver():
                 if self.RecordMessage:
                     c4d.CallCommand(12412) # Play Forwards (this command is a toggle, call again to pause the playback)
             except Exception as inst:
-                print "error deleting receiver, it may not exist. Check the setup function and runtime functions. "
-                print type(inst)
-                print inst
+                print("error deleting receiver, it may not exist. Check the setup function and runtime functions. ")
+                print(type(inst))
+                print(inst)
             self.SetTimer(0)
             self.updateInterface()
             self.ServerStarted = False
@@ -325,7 +310,7 @@ class OSCDialog(c4d.gui.GeDialog):
         
         # Lambdas
         self.AddEmpty = lambda: self.AddStaticText(0,0,0,0," ")
-        self.AddHeader = lambda (text): self.AddStaticText(
+        self.AddHeader = lambda text: self.AddStaticText(
             id    = 0,
             flags = c4d.BFH_LEFT|c4d.BFV_CENTER,
             initw = 150,
